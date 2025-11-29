@@ -25,6 +25,23 @@
             }
         }
     </script>
+    <style>
+        /* Custom Scrollbar for Webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b; 
+        }
+    </style>
 </head>
 <body class="bg-brand-dark text-slate-200 min-h-screen font-sans overflow-hidden flex flex-col">
     
@@ -107,23 +124,45 @@
         </div>
 
         <!-- Right: Gallery / Preview -->
-        <div class="flex-1 bg-brand-dark relative flex flex-col items-center justify-center p-8 overflow-hidden">
+        <div class="flex-1 bg-brand-dark relative">
              <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9IiMzMzMiIGZpbGwtb3BhY2l0eT0iMC4yIi8+PC9zdmc+')] opacity-20 pointer-events-none"></div>
              
-             <div id="emptyState" class="text-center opacity-50">
-                 <i class="fas fa-magic text-6xl text-slate-700 mb-4"></i>
-                 <p class="text-slate-500 text-lg">等待你的创意...</p>
-             </div>
+             <!-- Scrollable Area with m-auto centering -->
+             <div class="absolute inset-0 overflow-y-auto p-8 flex flex-col items-center">
+                 <div id="emptyState" class="m-auto text-center opacity-50">
+                     <i class="fas fa-magic text-6xl text-slate-700 mb-4"></i>
+                     <p class="text-slate-500 text-lg">等待你的创意...</p>
+                 </div>
 
-             <div id="resultContainer" class="hidden relative max-w-full max-h-full shadow-2xl rounded-lg overflow-hidden group">
-                 <img id="resultImage" class="max-w-full max-h-[80vh] object-contain block" />
-                 <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 translate-y-full group-hover:translate-y-0 transition duration-300 flex justify-between items-end">
-                     <div class="text-white text-sm opacity-90 line-clamp-2 flex-1 mr-4" id="resultPrompt"></div>
-                     <a id="downloadLink" href="#" download="generated.png" class="bg-white/20 hover:bg-white/30 backdrop-blur text-white p-2 rounded-lg transition">
-                         <i class="fas fa-download"></i>
-                     </a>
+                 <div id="resultContainer" class="hidden m-auto flex flex-col items-center w-full gap-4">
+                     <!-- Image Wrapper -->
+                     <div class="relative shadow-2xl rounded-lg overflow-hidden group shrink-0 max-h-[80vh] cursor-zoom-in" onclick="openImageZoom()">
+                         <img id="resultImage" class="max-w-full max-h-[80vh] object-contain block" />
+                         <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 translate-y-full group-hover:translate-y-0 transition duration-300 flex justify-between items-end">
+                             <div class="text-white text-sm opacity-90 line-clamp-2 flex-1 mr-4" id="resultPrompt"></div>
+                             <a id="downloadLink" href="#" download="generated.png" class="bg-white/20 hover:bg-white/30 backdrop-blur text-white p-2 rounded-lg transition" onclick="event.stopPropagation()">
+                                 <i class="fas fa-download"></i>
+                             </a>
+                         </div>
+                     </div>
+
+                     <!-- Text/Thought Chain Wrapper -->
+                     <div id="resultTextContainer" class="hidden w-full bg-slate-800/50 border border-slate-700 rounded-xl p-4 backdrop-blur-sm shrink-0 transition-all duration-300" style="min-width: 300px;">
+                         <div class="text-xs text-brand-accent font-bold mb-2 flex items-center">
+                             <i class="fas fa-brain mr-2"></i> 模型思考 / 输出
+                         </div>
+                         <div id="resultTextContent" class="text-sm text-slate-300 whitespace-pre-wrap font-mono leading-relaxed"></div>
+                     </div>
                  </div>
              </div>
+        </div>
+
+        <!-- Image Zoom Modal -->
+        <div id="imageZoomModal" class="fixed inset-0 bg-black/90 z-[60] hidden flex items-center justify-center cursor-zoom-out" onclick="closeImageZoom()">
+             <img id="zoomedImage" class="max-w-[95vw] max-h-[95vh] object-contain rounded-lg shadow-2xl transition-transform duration-300 scale-90 opacity-0" />
+             <button class="absolute top-4 right-4 text-white/70 hover:text-white text-2xl p-2" onclick="closeImageZoom()">
+                 <i class="fas fa-times"></i>
+             </button>
         </div>
 
         <!-- History Sidebar (Hidden by default) -->
@@ -361,25 +400,41 @@
                 };
 
                 const res = await axios.post('/api/generate', payload);
+                const data = res.data;
+
+                let imageUrl = null;
+                let textContent = "";
+
+                // Handle new object format or legacy array format
+                if (Array.isArray(data)) {
+                    imageUrl = data.length > 0 ? data[0] : null;
+                } else {
+                    if (data.images && data.images.length > 0) {
+                        imageUrl = data.images[0];
+                    }
+                    if (data.text) {
+                        textContent = data.text;
+                    }
+                }
                 
-                if (res.data.status === 'success' && res.data.images.length > 0) {
-                    const imageData = res.data.images[0];
-                    displayResult(imageData, prompt);
+                if (imageUrl || textContent) {
+                    displayResult(imageUrl, prompt, textContent);
                     await saveToHistory({
                         id: Date.now(),
                         prompt: prompt,
-                        image: imageData,
+                        image: imageUrl,
+                        text: textContent,
                         timestamp: new Date().toISOString(),
                         model: payload.model
                     });
-                    showToast('图片生成成功！');
+                    showToast('生成完成！');
                 } else {
-                    throw new Error("未收到图片数据");
+                    throw new Error("未收到有效数据");
                 }
 
             } catch (err) {
                 console.error(err);
-                const msg = err.response && err.data && err.response.data.error ? err.response.data.error : err.message;
+                const msg = err.response && err.data && err.data.error ? err.data.error : err.message;
                 showToast('生成失败: ' + msg, true);
             } finally {
                 btn.disabled = false;
@@ -389,16 +444,111 @@
             }
         }
 
-        function displayResult(base64Image, prompt) {
+        function displayResult(base64Image, prompt, textContent = "") {
             const imgEl = document.getElementById('resultImage');
-            imgEl.src = base64Image;
+            const textContainer = document.getElementById('resultTextContainer');
+            const textEl = document.getElementById('resultTextContent');
+            const resultContainer = document.getElementById('resultContainer');
+
+            // Handle Image
+            if (base64Image) {
+                imgEl.src = base64Image;
+                imgEl.parentElement.classList.remove('hidden'); // Ensure image wrapper is visible
+            } else {
+                imgEl.parentElement.classList.add('hidden'); // Hide image wrapper if no image
+            }
+
+            // Handle Text with Thought Rendering
+            if (textContent) {
+                // Escape HTML
+                let safeText = textContent
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+
+                // Render Thoughts
+                // 1. <thought> tags
+                safeText = safeText.replace(
+                    /&lt;thought&gt;([\s\S]*?)&lt;\/thought&gt;/gi, 
+                    '<div class="my-4 p-4 bg-slate-900/80 border-l-4 border-brand-accent rounded-r-lg text-slate-400 italic text-xs shadow-inner font-serif"><div class="font-bold text-brand-accent not-italic mb-1 text-[10px] uppercase tracking-wider">Thinking Process</div>$1</div>'
+                );
+
+                // 2. [Thought]: prefix
+                safeText = safeText.replace(
+                    /\[Thought\]: ([\s\S]*?)(\n|$)/gi,
+                    '<div class="my-4 p-4 bg-slate-900/80 border-l-4 border-brand-accent rounded-r-lg text-slate-400 italic text-xs shadow-inner font-serif"><div class="font-bold text-brand-accent not-italic mb-1 text-[10px] uppercase tracking-wider">Thinking Process</div>$1</div>'
+                );
+
+                textEl.innerHTML = safeText;
+                textContainer.classList.remove('hidden');
+            } else {
+                textContainer.classList.add('hidden');
+            }
             
-            document.getElementById('resultContainer').classList.remove('hidden');
+            resultContainer.classList.remove('hidden');
             document.getElementById('emptyState').classList.add('hidden');
             document.getElementById('resultPrompt').textContent = prompt;
             
-            const downloadLink = document.getElementById('downloadLink');
-            downloadLink.href = base64Image;
+            if (base64Image) {
+                const downloadLink = document.getElementById('downloadLink');
+                downloadLink.href = base64Image;
+
+                // Sync width when image loads
+                imgEl.onload = function() {
+                    // Ensure image has rendered dimensions
+                    const width = this.offsetWidth;
+                    if (width > 0) {
+                        textContainer.style.maxWidth = width + 'px';
+                        textContainer.style.width = '100%'; 
+                    }
+                };
+                // Trigger if already cached/loaded
+                if (imgEl.complete) {
+                    imgEl.onload();
+                }
+            }
+        }
+
+        // Resize listener to keep widths synced
+        window.addEventListener('resize', () => {
+            const imgEl = document.getElementById('resultImage');
+            const textContainer = document.getElementById('resultTextContainer');
+            if (imgEl && !imgEl.parentElement.classList.contains('hidden') && imgEl.offsetWidth > 0) {
+                textContainer.style.maxWidth = imgEl.offsetWidth + 'px';
+            }
+        });
+
+        // --- Image Zoom ---
+        function openImageZoom() {
+            const img = document.getElementById('resultImage');
+            if (!img.src) return;
+            
+            const modal = document.getElementById('imageZoomModal');
+            const zoomedImg = document.getElementById('zoomedImage');
+            
+            zoomedImg.src = img.src;
+            modal.classList.remove('hidden');
+            
+            // Animation
+            setTimeout(() => {
+                zoomedImg.classList.remove('scale-90', 'opacity-0');
+                zoomedImg.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeImageZoom() {
+            const modal = document.getElementById('imageZoomModal');
+            const zoomedImg = document.getElementById('zoomedImage');
+            
+            zoomedImg.classList.remove('scale-100', 'opacity-100');
+            zoomedImg.classList.add('scale-90', 'opacity-0');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                zoomedImg.src = '';
+            }, 300);
         }
 
         // --- IndexedDB History ---
@@ -454,7 +604,7 @@
             const history = await idbKeyval.get(HISTORY_STORE_KEY) || [];
             const item = history.find(i => i.id === id);
             if (item) {
-                displayResult(item.image, item.prompt);
+                displayResult(item.image, item.prompt, item.text);
                 // Optional: Restore prompt to textarea
                 // document.getElementById('prompt').value = item.prompt;
                 toggleHistory(); // Close sidebar
