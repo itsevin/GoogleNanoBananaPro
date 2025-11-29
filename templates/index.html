@@ -7,232 +7,278 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- IDB Keyval for simple IndexedDB storage -->
+    <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            dark: '#0f172a',
+                            light: '#1e293b',
+                            accent: '#fbbf24',
+                            accentHover: '#f59e0b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 </head>
-<body class="bg-gray-900 text-white min-h-screen font-sans">
-    <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-orange-500">
-                <i class="fas fa-image mr-2"></i>Nano Banana Image
+<body class="bg-brand-dark text-slate-200 min-h-screen font-sans overflow-hidden flex flex-col">
+    
+    <!-- Navbar -->
+    <nav class="bg-brand-light border-b border-slate-700 px-6 py-4 flex justify-between items-center shadow-md z-10">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center">
+                <i class="fas fa-bolt text-white text-sm"></i>
+            </div>
+            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-orange-500">
+                Nano Banana Pro
             </h1>
-            <button onclick="openSettings()" class="p-2 rounded-full hover:bg-gray-700 transition">
-                <i class="fas fa-cog text-xl text-gray-300"></i>
+        </div>
+        <div class="flex items-center space-x-4">
+            <button onclick="toggleHistory()" class="p-2 hover:bg-slate-700 rounded-lg transition text-slate-400 hover:text-white relative" title="历史记录">
+                <i class="fas fa-history text-lg"></i>
+            </button>
+            <button onclick="openSettings()" class="p-2 hover:bg-slate-700 rounded-lg transition text-slate-400 hover:text-white" title="设置">
+                <i class="fas fa-cog text-lg"></i>
             </button>
         </div>
+    </nav>
 
-        <!-- Main Content -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <!-- Left Panel: Controls -->
-            <div class="lg:col-span-1 space-y-6">
-                <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-                    <h2 class="text-xl font-semibold mb-4 text-gray-200">生成设置</h2>
-                    
-                    <!-- Prompt Input -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-400 mb-2">提示词 (Prompt)</label>
-                        <textarea id="prompt" rows="4" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none resize-none" placeholder="描述你想生成的图片..."></textarea>
-                    </div>
-
-                    <!-- Image Upload (Optional) -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-400 mb-2">参考图片 (可选)</label>
-                        <div class="relative border-2 border-dashed border-gray-600 rounded-lg p-4 text-center hover:border-yellow-500 transition cursor-pointer" onclick="document.getElementById('fileInput').click()">
-                            <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="handleImageUpload(this)">
-                            <div id="uploadPlaceholder">
-                                <i class="fas fa-cloud-upload-alt text-2xl text-gray-500 mb-2"></i>
-                                <p class="text-xs text-gray-500">点击上传图片</p>
-                            </div>
-                            <img id="previewImage" class="hidden max-h-32 mx-auto rounded" />
-                            <button id="clearImageBtn" class="hidden absolute top-1 right-1 text-red-400 hover:text-red-300" onclick="clearImage(event)">
-                                <i class="fas fa-times-circle"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Aspect Ratio Selection -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-400 mb-2">图片比例 (Aspect Ratio)</label>
-                        <select id="aspectRatio" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-2 text-white focus:border-yellow-500 outline-none">
-                            <option value="">默认 (1:1)</option>
-                            <option value="1:1">1:1 (Square)</option>
-                            <option value="4:3">4:3 (Landscape)</option>
-                            <option value="3:4">3:4 (Portrait)</option>
-                            <option value="16:9">16:9 (Widescreen)</option>
-                            <option value="9:16">9:16 (Mobile)</option>
-                        </select>
-                    </div>
-
-                    <!-- Model Selection (Quick View) -->
-                    <div class="mb-6">
-                         <label class="block text-sm font-medium text-gray-400 mb-2">当前模型</label>
-                         <div class="text-sm text-yellow-400 font-mono" id="currentModelDisplay">Loading...</div>
-                    </div>
-
-                    <!-- Generate Button -->
-                    <button onclick="generateImage()" id="generateBtn" class="w-full bg-gradient-to-r from-yellow-500 to-orange-600 text-white font-bold py-3 px-4 rounded-lg shadow hover:from-yellow-600 hover:to-orange-700 transition transform hover:scale-[1.02] flex justify-center items-center">
-                        <span id="btnText">生成图片</span>
-                        <i id="btnSpinner" class="fas fa-spinner fa-spin ml-2 hidden"></i>
-                    </button>
-                </div>
+    <!-- Main Layout -->
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- Left: Creation Panel -->
+        <div class="w-full lg:w-[450px] bg-brand-light border-r border-slate-700 flex flex-col overflow-y-auto p-6 z-0">
+            <div class="space-y-6">
                 
-                <!-- Error Box -->
-                <div id="errorBox" class="hidden bg-red-900/50 border border-red-500 text-red-200 p-4 rounded-lg text-sm">
-                    <i class="fas fa-exclamation-circle mr-2"></i>
-                    <span id="errorMessage"></span>
+                <!-- Prompt -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-400 mb-2 flex justify-between">
+                        <span>提示词 (Prompt)</span>
+                        <span class="text-xs text-slate-500 cursor-pointer hover:text-brand-accent" onclick="fillExamplePrompt()">试个例子</span>
+                    </label>
+                    <textarea id="prompt" rows="5" class="w-full bg-slate-800 border border-slate-600 rounded-xl p-4 text-white focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none resize-none transition shadow-inner placeholder-slate-600" placeholder="一只戴着宇航员头盔的柴犬，在月球上喝咖啡，数字艺术风格..."></textarea>
                 </div>
-            </div>
 
-            <!-- Right Panel: Results -->
-            <div class="lg:col-span-2">
-                <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 min-h-[500px] flex flex-col">
-                    <h2 class="text-xl font-semibold mb-4 text-gray-200">生成结果</h2>
-                    
-                    <div id="resultContainer" class="flex-1 flex items-center justify-center bg-gray-900 rounded-lg border border-gray-700 relative overflow-hidden">
-                        <p class="text-gray-500" id="emptyState">暂无生成的图片</p>
-                        <img id="resultImage" class="hidden max-w-full max-h-[600px] object-contain rounded shadow-2xl" />
+                <!-- Aspect Ratio -->
+                <div>
+                     <label class="block text-sm font-medium text-slate-400 mb-2">图片比例</label>
+                     <div class="grid grid-cols-5 gap-2">
+                         <button onclick="setAspectRatio('')" class="ratio-btn active p-2 rounded border border-slate-600 bg-slate-800 hover:border-brand-accent text-xs text-center transition" data-val="">1:1</button>
+                         <button onclick="setAspectRatio('4:3')" class="ratio-btn p-2 rounded border border-slate-600 bg-slate-800 hover:border-brand-accent text-xs text-center transition" data-val="4:3">4:3</button>
+                         <button onclick="setAspectRatio('3:4')" class="ratio-btn p-2 rounded border border-slate-600 bg-slate-800 hover:border-brand-accent text-xs text-center transition" data-val="3:4">3:4</button>
+                         <button onclick="setAspectRatio('16:9')" class="ratio-btn p-2 rounded border border-slate-600 bg-slate-800 hover:border-brand-accent text-xs text-center transition" data-val="16:9">16:9</button>
+                         <button onclick="setAspectRatio('9:16')" class="ratio-btn p-2 rounded border border-slate-600 bg-slate-800 hover:border-brand-accent text-xs text-center transition" data-val="9:16">9:16</button>
+                     </div>
+                     <input type="hidden" id="aspectRatioInput" value="">
+                </div>
+
+                <!-- Reference Image -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-400 mb-2">参考图片 (可选)</label>
+                    <div class="relative border-2 border-dashed border-slate-600 rounded-xl p-4 text-center hover:border-brand-accent hover:bg-slate-800/50 transition cursor-pointer group" onclick="document.getElementById('fileInput').click()">
+                        <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="handleImageUpload(this)">
+                        <div id="uploadPlaceholder">
+                            <i class="fas fa-image text-3xl text-slate-600 mb-2 group-hover:text-slate-400 transition"></i>
+                            <p class="text-xs text-slate-500">点击上传或拖拽图片</p>
+                        </div>
+                        <img id="previewImage" class="hidden h-24 mx-auto rounded-lg shadow-md object-cover" />
+                        <button id="clearImageBtn" class="hidden absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 shadow-sm" onclick="clearImage(event)">
+                            <i class="fas fa-times text-xs"></i>
+                        </button>
                     </div>
-                    
-                    <div id="imageActions" class="mt-4 flex justify-end space-x-3 hidden">
-                        <a id="downloadLink" href="#" download="generated.png" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded transition">
-                            <i class="fas fa-download mr-2"></i>下载
-                        </a>
-                    </div>
+                </div>
+
+                <!-- Generate Button -->
+                <button onclick="generateImage()" id="generateBtn" class="w-full bg-gradient-to-r from-yellow-500 to-orange-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-orange-500/20 hover:from-yellow-600 hover:to-orange-700 transition transform active:scale-[0.98] flex justify-center items-center mt-auto">
+                    <span id="btnText">开始生成</span>
+                    <i id="btnSpinner" class="fas fa-circle-notch fa-spin ml-2 hidden"></i>
+                </button>
+                
+                <!-- Model Info -->
+                <div class="text-center">
+                    <p class="text-xs text-slate-600" id="modelInfoText">当前模型: 默认</p>
                 </div>
             </div>
         </div>
+
+        <!-- Right: Gallery / Preview -->
+        <div class="flex-1 bg-brand-dark relative flex flex-col items-center justify-center p-8 overflow-hidden">
+             <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9IiMzMzMiIGZpbGwtb3BhY2l0eT0iMC4yIi8+PC9zdmc+')] opacity-20 pointer-events-none"></div>
+             
+             <div id="emptyState" class="text-center opacity-50">
+                 <i class="fas fa-magic text-6xl text-slate-700 mb-4"></i>
+                 <p class="text-slate-500 text-lg">等待你的创意...</p>
+             </div>
+
+             <div id="resultContainer" class="hidden relative max-w-full max-h-full shadow-2xl rounded-lg overflow-hidden group">
+                 <img id="resultImage" class="max-w-full max-h-[80vh] object-contain block" />
+                 <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 translate-y-full group-hover:translate-y-0 transition duration-300 flex justify-between items-end">
+                     <div class="text-white text-sm opacity-90 line-clamp-2 flex-1 mr-4" id="resultPrompt"></div>
+                     <a id="downloadLink" href="#" download="generated.png" class="bg-white/20 hover:bg-white/30 backdrop-blur text-white p-2 rounded-lg transition">
+                         <i class="fas fa-download"></i>
+                     </a>
+                 </div>
+             </div>
+        </div>
+
+        <!-- History Sidebar (Hidden by default) -->
+        <div id="historySidebar" class="fixed right-0 top-[73px] bottom-0 w-80 bg-brand-light border-l border-slate-700 transform translate-x-full transition-transform duration-300 z-20 flex flex-col shadow-2xl">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+                <h3 class="font-bold text-slate-200">历史记录</h3>
+                <button onclick="clearHistory()" class="text-xs text-red-400 hover:text-red-300">清空</button>
+            </div>
+            <div id="historyList" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <!-- History Items -->
+                <div class="text-center text-slate-600 text-sm mt-10">暂无记录</div>
+            </div>
+        </div>
+
     </div>
 
     <!-- Settings Modal -->
-    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
-        <div class="bg-gray-800 w-full max-w-md rounded-xl shadow-2xl border border-gray-700 p-6 transform transition-all">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold text-white">设置</h3>
-                <button onclick="closeSettings()" class="text-gray-400 hover:text-white">
+    <div id="settingsModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center hidden z-50 transition-opacity opacity-0">
+        <div class="bg-brand-light w-full max-w-md rounded-2xl shadow-2xl border border-slate-600 p-6 transform scale-95 transition-transform duration-200" id="settingsModalContent">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+                <h3 class="text-xl font-bold text-white"><i class="fas fa-sliders-h mr-2 text-brand-accent"></i>设置</h3>
+                <button onclick="closeSettings()" class="text-slate-400 hover:text-white">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             
-            <div class="space-y-4">
+            <div class="space-y-5">
                 <div>
-                    <label class="block text-sm font-medium text-gray-400 mb-1">Base URL</label>
-                    <input type="text" id="configBaseUrl" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-yellow-500 outline-none" placeholder="https://generativelanguage.googleapis.com">
+                    <label class="block text-sm font-medium text-slate-300 mb-1">API Key <span class="text-red-400">*</span></label>
+                    <input type="password" id="configApiKey" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:border-brand-accent outline-none transition text-sm" placeholder="输入 Google AI Studio API Key">
+                    <p class="text-xs text-slate-500 mt-1">您的 Key 仅保存在本地浏览器中。</p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-400 mb-1">API Key</label>
-                    <input type="password" id="configApiKey" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-yellow-500 outline-none">
+                    <label class="block text-sm font-medium text-slate-300 mb-1">Base URL (可选)</label>
+                    <input type="text" id="configBaseUrl" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:border-brand-accent outline-none transition text-sm" placeholder="例如 https://generativelanguage.googleapis.com">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-400 mb-1">模型名称</label>
-                    <select id="configModel" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-yellow-500 outline-none">
-                        <option value="gemini-2.5-flash-image">gemini-2.5-flash-image</option>
-                        <option value="gemini-3-pro-image-preview">gemini-3-pro-image-preview</option>
-                         <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp (Text Only)</option>
+                    <label class="block text-sm font-medium text-slate-300 mb-1">模型名称</label>
+                    <select id="configModel" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:border-brand-accent outline-none transition text-sm">
+                        <option value="gemini-2.5-flash-image">gemini-2.5-flash-image (Fast)</option>
+                        <option value="gemini-3-pro-image-preview">gemini-3-pro-image-preview (Quality)</option>
                     </select>
-                     <input type="text" id="configModelCustom" class="mt-2 w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-yellow-500 outline-none hidden" placeholder="Custom Model Name">
-                     <div class="flex items-center mt-1">
-                         <input type="checkbox" id="useCustomModel" onchange="toggleCustomModel()" class="mr-2">
-                         <label for="useCustomModel" class="text-xs text-gray-400">使用自定义模型名称</label>
-                     </div>
                 </div>
             </div>
 
-            <div class="mt-8 flex justify-end space-x-3">
-                <button onclick="closeSettings()" class="px-4 py-2 text-gray-400 hover:text-white transition">取消</button>
-                <button onclick="saveSettings()" class="px-6 py-2 bg-yellow-600 hover:bg-yellow-500 text-white rounded font-medium transition">保存</button>
+            <div class="mt-8 flex justify-end space-x-3 pt-4 border-t border-slate-700">
+                <button onclick="closeSettings()" class="px-4 py-2 text-slate-400 hover:text-white transition text-sm">取消</button>
+                <button onclick="saveSettings()" class="px-6 py-2 bg-brand-accent hover:bg-brand-accentHover text-brand-dark font-bold rounded-lg transition text-sm shadow-lg shadow-yellow-500/20">保存配置</button>
             </div>
         </div>
     </div>
 
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-brand-light border-l-4 border-brand-accent text-white px-6 py-4 rounded shadow-2xl transform translate-y-20 transition-transform duration-300 z-50 hidden">
+        <p id="toastMessage">Notification</p>
+    </div>
+
     <script>
         let currentImageBase64 = null;
+        const HISTORY_STORE_KEY = 'nano_banana_history';
 
-        // Load config on startup
+        // --- Initialization ---
         window.onload = async () => {
-            try {
-                const res = await axios.get('/api/config');
-                const config = res.data;
-                document.getElementById('configBaseUrl').value = config.base_url;
-                document.getElementById('configApiKey').value = config.api_key;
-                
-                const modelSelect = document.getElementById('configModel');
-                const customInput = document.getElementById('configModelCustom');
-                const customCheck = document.getElementById('useCustomModel');
-                
-                let found = false;
-                for(let i=0; i<modelSelect.options.length; i++) {
-                    if(modelSelect.options[i].value === config.model_name) {
-                        modelSelect.value = config.model_name;
-                        found = true;
-                        break;
-                    }
-                }
-                
-                if(!found && config.model_name) {
-                    customCheck.checked = true;
-                    toggleCustomModel();
-                    customInput.value = config.model_name;
-                } else {
-                    document.getElementById('currentModelDisplay').textContent = config.model_name || 'Not Set';
-                }
-                
-                if (!found && !config.model_name) {
-                     modelSelect.value = "gemini-2.5-flash-image"; // Default
-                }
-                
-                updateCurrentModelDisplay();
-
-            } catch (err) {
-                console.error("Failed to load config", err);
+            loadSettings();
+            await loadHistory();
+            
+            // Check if API key is set, if not open settings
+            if (!localStorage.getItem('nb_api_key')) {
+                setTimeout(openSettings, 500);
             }
         };
 
-        function toggleCustomModel() {
-            const isCustom = document.getElementById('useCustomModel').checked;
-            const select = document.getElementById('configModel');
-            const input = document.getElementById('configModelCustom');
+        // --- Settings Management (LocalStorage) ---
+        function loadSettings() {
+            const apiKey = localStorage.getItem('nb_api_key') || '';
+            const baseUrl = localStorage.getItem('nb_base_url') || '';
+            const model = localStorage.getItem('nb_model') || 'gemini-2.5-flash-image';
+
+            document.getElementById('configApiKey').value = apiKey;
+            document.getElementById('configBaseUrl').value = baseUrl;
+            document.getElementById('configModel').value = model;
             
-            if (isCustom) {
-                select.classList.add('hidden');
-                input.classList.remove('hidden');
-            } else {
-                select.classList.remove('hidden');
-                input.classList.add('hidden');
+            updateModelInfoText(model);
+        }
+
+        function saveSettings() {
+            const apiKey = document.getElementById('configApiKey').value.trim();
+            const baseUrl = document.getElementById('configBaseUrl').value.trim();
+            const model = document.getElementById('configModel').value;
+
+            if (!apiKey) {
+                showToast('API Key 不能为空', true);
+                return;
             }
+
+            localStorage.setItem('nb_api_key', apiKey);
+            localStorage.setItem('nb_base_url', baseUrl);
+            localStorage.setItem('nb_model', model);
+
+            updateModelInfoText(model);
+            closeSettings();
+            showToast('设置已保存到本地');
         }
 
-        function updateCurrentModelDisplay() {
-             const isCustom = document.getElementById('useCustomModel').checked;
-             let val = isCustom ? document.getElementById('configModelCustom').value : document.getElementById('configModel').value;
-             document.getElementById('currentModelDisplay').textContent = val;
+        function updateModelInfoText(model) {
+            document.getElementById('modelInfoText').textContent = `当前模型: ${model}`;
         }
 
+        // --- UI Interactions ---
         function openSettings() {
-            document.getElementById('settingsModal').classList.remove('hidden');
+            const modal = document.getElementById('settingsModal');
+            modal.classList.remove('hidden');
+            // Trigger reflow
+            void modal.offsetWidth; 
+            modal.classList.remove('opacity-0');
+            modal.querySelector('#settingsModalContent').classList.remove('scale-95');
+            modal.querySelector('#settingsModalContent').classList.add('scale-100');
         }
 
         function closeSettings() {
-            document.getElementById('settingsModal').classList.add('hidden');
+            const modal = document.getElementById('settingsModal');
+            modal.classList.add('opacity-0');
+            modal.querySelector('#settingsModalContent').classList.remove('scale-100');
+            modal.querySelector('#settingsModalContent').classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
         }
 
-        async function saveSettings() {
-            const isCustom = document.getElementById('useCustomModel').checked;
-            const modelName = isCustom ? document.getElementById('configModelCustom').value : document.getElementById('configModel').value;
-            
-            const config = {
-                base_url: document.getElementById('configBaseUrl').value,
-                api_key: document.getElementById('configApiKey').value,
-                model_name: modelName
-            };
+        function toggleHistory() {
+            const sidebar = document.getElementById('historySidebar');
+            sidebar.classList.toggle('translate-x-full');
+        }
 
-            try {
-                await axios.post('/api/config', config);
-                updateCurrentModelDisplay();
-                closeSettings();
-                alert('设置已保存');
-            } catch (err) {
-                alert('保存失败: ' + err.message);
-            }
+        function setAspectRatio(ratio) {
+            document.getElementById('aspectRatioInput').value = ratio;
+            document.querySelectorAll('.ratio-btn').forEach(btn => {
+                if (btn.dataset.val === ratio) {
+                    btn.classList.add('border-brand-accent', 'text-brand-accent');
+                    btn.classList.remove('border-slate-600', 'text-slate-300');
+                } else {
+                    btn.classList.remove('border-brand-accent', 'text-brand-accent');
+                    btn.classList.add('border-slate-600', 'text-slate-300');
+                }
+            });
+        }
+
+        function fillExamplePrompt() {
+            const prompts = [
+                "赛博朋克风格的东京街头雨夜，霓虹灯倒映在积水中，远处有巨大的全息广告牌",
+                "一张微距摄影，清晨露珠在翠绿的荷叶上滚动，阳光折射出彩虹",
+                "皮克斯风格的可爱3D渲染，一只戴着眼镜的猫头鹰教授在图书馆里看书",
+                "中国水墨画风格，黄山云海，孤松耸立，留白意境"
+            ];
+            document.getElementById('prompt').value = prompts[Math.floor(Math.random() * prompts.length)];
         }
 
         function handleImageUpload(input) {
@@ -259,65 +305,160 @@
             currentImageBase64 = null;
         }
 
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            toastMsg.textContent = msg;
+            if (isError) {
+                toast.classList.remove('border-brand-accent');
+                toast.classList.add('border-red-500');
+            } else {
+                toast.classList.add('border-brand-accent');
+                toast.classList.remove('border-red-500');
+            }
+            toast.classList.remove('hidden', 'translate-y-20');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20');
+                setTimeout(() => toast.classList.add('hidden'), 300);
+            }, 3000);
+        }
+
+        // --- Core Logic: Generate ---
         async function generateImage() {
             const prompt = document.getElementById('prompt').value;
+            const apiKey = localStorage.getItem('nb_api_key');
+            
+            if (!apiKey) {
+                openSettings();
+                showToast('请先配置 API Key', true);
+                return;
+            }
+
             if (!prompt) {
-                showError("请输入提示词");
+                showToast('请输入提示词', true);
                 return;
             }
 
             const btn = document.getElementById('generateBtn');
             const btnText = document.getElementById('btnText');
             const btnSpinner = document.getElementById('btnSpinner');
-            const errorBox = document.getElementById('errorBox');
             
-            // Reset state
-            errorBox.classList.add('hidden');
+            // Loading state
             btn.disabled = true;
             btn.classList.add('opacity-75', 'cursor-not-allowed');
-            btnText.textContent = "生成中...";
+            btnText.textContent = "正在生成...";
             btnSpinner.classList.remove('hidden');
             
             try {
                 const payload = {
+                    api_key: apiKey,
+                    base_url: localStorage.getItem('nb_base_url'),
+                    model: localStorage.getItem('nb_model'),
                     prompt: prompt,
                     image: currentImageBase64,
-                    aspect_ratio: document.getElementById('aspectRatio').value
+                    aspect_ratio: document.getElementById('aspectRatioInput').value
                 };
 
                 const res = await axios.post('/api/generate', payload);
                 
                 if (res.data.status === 'success' && res.data.images.length > 0) {
-                    const imageUrl = res.data.images[0];
-                    const imgEl = document.getElementById('resultImage');
-                    imgEl.src = imageUrl;
-                    imgEl.classList.remove('hidden');
-                    document.getElementById('emptyState').classList.add('hidden');
-                    
-                    const downloadLink = document.getElementById('downloadLink');
-                    downloadLink.href = imageUrl;
-                    document.getElementById('imageActions').classList.remove('hidden');
+                    const imageData = res.data.images[0];
+                    displayResult(imageData, prompt);
+                    await saveToHistory({
+                        id: Date.now(),
+                        prompt: prompt,
+                        image: imageData,
+                        timestamp: new Date().toISOString(),
+                        model: payload.model
+                    });
+                    showToast('图片生成成功！');
                 } else {
                     throw new Error("未收到图片数据");
                 }
 
             } catch (err) {
                 console.error(err);
-                const msg = err.response && err.response.data && err.response.data.error ? err.response.data.error : err.message;
-                showError(msg);
+                const msg = err.response && err.data && err.response.data.error ? err.response.data.error : err.message;
+                showToast('生成失败: ' + msg, true);
             } finally {
                 btn.disabled = false;
                 btn.classList.remove('opacity-75', 'cursor-not-allowed');
-                btnText.textContent = "生成图片";
+                btnText.textContent = "开始生成";
                 btnSpinner.classList.add('hidden');
             }
         }
 
-        function showError(msg) {
-            const errorBox = document.getElementById('errorBox');
-            const errorMsg = document.getElementById('errorMessage');
-            errorMsg.textContent = msg;
-            errorBox.classList.remove('hidden');
+        function displayResult(base64Image, prompt) {
+            const imgEl = document.getElementById('resultImage');
+            imgEl.src = base64Image;
+            
+            document.getElementById('resultContainer').classList.remove('hidden');
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('resultPrompt').textContent = prompt;
+            
+            const downloadLink = document.getElementById('downloadLink');
+            downloadLink.href = base64Image;
+        }
+
+        // --- IndexedDB History ---
+        async function saveToHistory(item) {
+            try {
+                // Use idb-keyval library
+                const history = await idbKeyval.get(HISTORY_STORE_KEY) || [];
+                history.unshift(item); // Add to top
+                // Limit to 50 items to save space
+                if (history.length > 50) history.pop();
+                await idbKeyval.set(HISTORY_STORE_KEY, history);
+                renderHistory(history);
+            } catch (e) {
+                console.error("Save history failed", e);
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const history = await idbKeyval.get(HISTORY_STORE_KEY) || [];
+                renderHistory(history);
+            } catch (e) {
+                console.error("Load history failed", e);
+            }
+        }
+
+        async function clearHistory() {
+            if(confirm('确定要清空所有历史记录吗？')) {
+                await idbKeyval.del(HISTORY_STORE_KEY);
+                renderHistory([]);
+            }
+        }
+
+        function renderHistory(history) {
+            const container = document.getElementById('historyList');
+            if (history.length === 0) {
+                container.innerHTML = '<div class="text-center text-slate-600 text-sm mt-10">暂无记录</div>';
+                return;
+            }
+
+            container.innerHTML = history.map(item => `
+                <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700 hover:border-brand-accent transition cursor-pointer group" onclick="restoreHistoryItem(${item.id})">
+                    <img src="${item.image}" class="w-full h-32 object-cover" loading="lazy">
+                    <div class="p-2">
+                        <p class="text-xs text-slate-400 line-clamp-2 group-hover:text-white transition">${item.prompt}</p>
+                        <p class="text-[10px] text-slate-600 mt-1">${new Date(item.timestamp).toLocaleString()}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function restoreHistoryItem(id) {
+            const history = await idbKeyval.get(HISTORY_STORE_KEY) || [];
+            const item = history.find(i => i.id === id);
+            if (item) {
+                displayResult(item.image, item.prompt);
+                // Optional: Restore prompt to textarea
+                // document.getElementById('prompt').value = item.prompt;
+                toggleHistory(); // Close sidebar
+            }
         }
     </script>
 </body>

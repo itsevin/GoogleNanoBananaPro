@@ -1,68 +1,84 @@
-# Google Nano Banana Pro Image Generator
+# 🍌 Google Nano Banana Pro
 
-基于 Python Flask 构建的 Web 应用程序，用于调用 Google Gemini (Nano Banana) 系列模型生成图片。
+<div align="center">
 
-> 这个项目是我为了调用 DMXAPI 的第三方API创建的，非常好用，代码由 AI 生成
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue) ![Flask](https://img.shields.io/badge/Flask-Backend-green) ![Tailwind](https://img.shields.io/badge/Tailwind-CSS-38bdf8) ![License](https://img.shields.io/badge/License-MIT-yellow)
 
-## 功能特点
+**一个轻量、现代且隐私优先的 Google Gemini 图像生成 Web 客户端**
 
-1.  **多模式支持**：
-    *   **文生图 (Text-to-Image)**：输入提示词生成高质量图片。
-    *   **图生图 (Image-to-Image)**：上传参考图片并结合提示词生成新图片。
-2.  **高度可配置**：
-    *   支持在 Web 界面直接配置 `Base URL` (用于代理)、`API Key` 和 `Model Name`。
-    *   配置信息持久化保存到本地 `config.json` 文件。
-3.  **美观实用的 UI**：
-    *   使用 Tailwind CSS 构建的现代化深色主题界面。
-    *   实时预览上传图片。
-    *   生成过程加载状态提示。
-    *   一键下载生成的图片。
-4.  **错误处理**：
-    *   界面直观显示 API 调用错误信息，方便排查问题。
+[功能特性](#-功能特性) • [快速开始](#-快速开始) • [界面预览](#-界面预览) • [配置说明](#-配置说明)
 
-## 环境要求
+</div>
 
-*   Python 3.8+
-*   Google Gemini API Key
+---
 
-## 安装与运行
+## 📖 简介
 
-1.  **安装依赖**
+**Google Nano Banana Pro** 是一个基于 Python Flask 和 Tailwind CSS 构建的 Web 应用程序，专为调用 Google Gemini 系列模型（如 `gemini-2.5-flash-image`, `gemini-3-pro-image-preview`）而设计。
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+它提供了一个**无状态**、**隐私优先**的现代化界面，让你能轻松体验 Google 最新的图像生成能力。所有的敏感配置（API Key）和生成历史都直接存储在你的浏览器本地，后端仅作为纯粹的 API 转发代理。
 
-2.  **配置**
+> 作者寄语：配合 DMXAPI 的低价API食用更佳哦！
 
-    复制 `config.example.json` 为 `config.json` (可选，应用启动后也可在设置界面配置)。
+## ✨ 功能特性
 
-3.  **启动应用**
+| 功能 | 说明 |
+| :--- | :--- |
+| 🔒 **隐私优先** | **零服务端存储**。API Key、Base URL 和生成历史仅保存在您的浏览器（LocalStorage/IndexedDB）。 |
+| 🎨 **多模式支持** | 支持 **文生图 (Text-to-Image)** 和 **图生图 (Image-to-Image)**。 |
+| 📐 **灵活控制** | 支持自定义图片比例（1:1, 16:9, 4:3, 3:4, 9:16）和模型选择。 |
+| 🖼️ **本地历史** | 内置历史记录管理器，支持回溯查看、重新下载生成的图片。 |
+| ⚡ **实时反馈** | 实时上传预览、生成进度提示、错误信息可视化展示。 |
+| 🌙 **现代 UI** | 基于 Tailwind CSS 精心设计的深色模式界面，美观且实用。 |
 
-    ```bash
-    python app.py
-    ```
+## 🚀 快速开始
 
-4.  **访问界面**
+只需三步即可运行：
 
-    打开浏览器访问：`http://127.0.0.1:5000`
+### 1. 环境准备
+确保已安装 Python 3.8+。克隆项目并安装依赖：
 
-## 使用指南
+```bash
+# 安装依赖
+pip install -r requirements.txt
+```
 
-1.  **首次设置**：
-    *   点击右上角的齿轮图标 ⚙️ 打开设置。
-    *   输入您的 Gemini API Key。
-    *   如果需要代理，输入 Base URL (例如 `https://generativelanguage.googleapis.com` 或您的反代地址)。
-    *   选择或输入模型名称 (默认 `gemini-2.5-flash-image`)。
-    *   点击“保存”。
+### 2. 启动服务
 
-2.  **生成图片**：
-    *   在左侧输入框填写提示词 (Prompt)。
-    *   (可选) 点击虚线框上传一张参考图片。
-    *   点击“生成图片”按钮。
-    *   右侧将显示生成结果，点击“下载”即可保存到本地。
+```bash
+python app.py
+```
 
-## 注意事项
+### 3. 访问应用
+打开浏览器访问：[http://127.0.0.1:5000](http://127.0.0.1:5000)
 
-*   生成的图片保存在 `static/generated/` 目录下。
-*   请确保您的网络环境可以连接到 Google Gemini API (或配置了有效的 Base URL)。
+---
+
+## ⚙️ 配置说明
+
+应用启动后，首次使用需要配置 API 信息。这些信息**只保存在你的浏览器**中。
+
+1.  点击页面右上角的 **设置图标 (⚙️)**。
+2.  **API Key**: 输入你的 Google Gemini API Key。
+3.  **Base URL** (可选): 如果你在国内或需要使用代理，请输入反代地址（例如 `https://generativelanguage.googleapis.com` 或自定义域名）。
+4.  **Model Name**: 默认为 `gemini-2.5-flash-image`，可根据需要修改。
+5.  点击 **保存** 即可生效。
+
+---
+
+## 📸 界面预览
+
+### 主界面
+![主界面](img/demo.png)
+
+---
+
+## �️ 技术栈
+
+*   **Backend**: Python, Flask, Google GenAI SDK
+*   **Frontend**: HTML5, Tailwind CSS (CDN), JavaScript (ES6+)
+*   **Storage**: LocalStorage (配置), IndexedDB (历史记录)
+
+## 📄 许可证
+
+本项目采用 [MIT License](LICENSE) 开源。

@@ -1,137 +1,113 @@
 import os
-import json
 import base64
 import io
-import time
 from flask import Flask, render_template, request, jsonify
 from google import genai
 from google.genai import types
 from PIL import Image
 
 app = Flask(__name__)
-CONFIG_FILE = 'config.json'
-STATIC_FOLDER = 'static'
-GENERATED_FOLDER = os.path.join(STATIC_FOLDER, 'generated')
 
-os.makedirs(GENERATED_FOLDER, exist_ok=True)
-
-def load_config():
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {
-        "api_key": "",
-        "base_url": "",
-        "model_name": "gemini-2.5-flash-image"
-    }
-
-def save_config(config):
-    with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-        json.dump(config, f, indent=4)
+# 无状态服务，不保存任何配置和文件
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/api/config', methods=['GET'])
-def get_config():
-    return jsonify(load_config())
-
-@app.route('/api/config', methods=['POST'])
-def update_config():
-    new_config = request.json
-    current_config = load_config()
-    current_config.update(new_config)
-    save_config(current_config)
-    return jsonify({"status": "success", "config": current_config})
-
 @app.route('/api/generate', methods=['POST'])
 def generate():
-    config = load_config()
-    api_key = config.get('api_key')
-    base_url = config.get('base_url')
-    default_model = config.get('model_name')
+    # 从请求中获取所有配置，不依赖服务器本地文件
+    data = request.json
     
-    if not api_key:
-        return jsonify({"error": "API Key is missing. Please configure it in settings."}), 400
-
-    data = request.json or request.form
+    api_key = data.get('api_key')
+    base_url = data.get('base_url')
+    model = data.get('model', 'gemini-2.5-flash-image')
     prompt = data.get('prompt')
-    model = data.get('model', default_model)
-    input_image_data = data.get('image') # Base64 string if provided
+    input_image_data = data.get('image') # Base64 string
     aspect_ratio = data.get('aspect_ratio')
     
+    if not api_key:
+        return jsonify({"error": "请在设置中配置 API Key"}), 401
+    
     if not prompt:
-        return jsonify({"error": "Prompt is required"}), 400
+        return jsonify({"error": "请输入提示词"}), 400
 
     try:
+        # 配置 Client
         http_options = {}
         if base_url:
             http_options['base_url'] = base_url
             
         client = genai.Client(api_key=api_key, http_options=http_options if http_options else None)
         
+        # 准备内容
         contents = [prompt]
         
         if input_image_data:
-            # Handle base64 image
-            if input_image_data.startswith('data:image'):
-                header, encoded = input_image_data.split(",", 1)
-                input_image_bytes = base64.b64decode(encoded)
-                image = Image.open(io.BytesIO(input_image_bytes))
-                contents.append(image)
+            try:
+                if input_image_data.startswith('data:image'):
+                    header, encoded = input_image_data.split(",", 1)
+                    input_image_bytes = base64.b64decode(encoded)
+                    image = Image.open(io.BytesIO(input_image_bytes))
+                    contents.append(image)
+            except Exception as e:
+                return jsonify({"error": f"图片处理失败: {str(e)}"}), 400
         
-        # Configure generation
+        # 配置生成参数
         config = None
         if aspect_ratio:
-            # Supports: "1:1", "3:4", "4:3", "9:16", "16:9"
             config = types.GenerateContentConfig(
                 image_config=types.ImageConfig(
                     aspect_ratio=aspect_ratio
                 )
             )
 
+        # 调用 Google API
         response = client.models.generate_content(
             model=model,
             contents=contents,
             config=config
         )
         
-        generated_images = []
+        # 处理结果
+        generated_images_base64 = []
         
-        # Check candidates
         if response.candidates:
             for candidate in response.candidates:
                 for part in candidate.content.parts:
                     if part.inline_data:
-                        image_data = part.inline_data.data
-                        # Decode if necessary (usually bytes)
-                        # The SDK might return raw bytes or base64 string depending on version
-                        # But part.as_image() is a helper if available.
-                        # In the snippet: image = part.as_image(); image.save(...)
+                        # Google GenAI SDK v1.0+ usually returns raw bytes in part.inline_data.data
+                        raw_data = part.inline_data.data
                         
-                        try:
-                            # Try using SDK helper if available
-                            if hasattr(part, 'as_image'):
-                                img = part.as_image()
-                            else:
-                                # Manual decode
-                                img_bytes = base64.b64decode(image_data)
-                                img = Image.open(io.BytesIO(img_bytes))
-                            
-                            filename = f"gen_{int(time.time())}_{len(generated_images)}.png"
-                            filepath = os.path.join(GENERATED_FOLDER, filename)
-                            img.save(filepath)
-                            generated_images.append(f"/static/generated/{filename}")
-                        except Exception as e:
-                            print(f"Error saving image part: {e}")
+                        if isinstance(raw_data, bytes):
+                            # If it's already bytes, it's likely the raw image data
+                            img_bytes = raw_data
+                        else:
+                            # If it's a string, it might be base64 encoded
+                            try:
+                                img_bytes = base64.b64decode(raw_data)
+                            except:
+                                # Fallback or error
+                                continue
 
-        if not generated_images:
-            return jsonify({"error": "No image generated. Response might be blocked or empty.", "details": str(response)}), 500
+                        # Encode to base64 string for frontend display
+                        b64_str = base64.b64encode(img_bytes).decode('utf-8')
+                        
+                        # Verify it's a valid image (Optional but safer)
+                        # try:
+                        #     Image.open(io.BytesIO(img_bytes))
+                        # except:
+                        #     print("Warning: Generated data might not be a valid image")
+
+                        generated_images_base64.append(f"data:image/png;base64,{b64_str}")
+
+        if not generated_images_base64:
+            return jsonify({"error": "生成失败，未返回图片数据", "details": str(response)}), 500
             
-        return jsonify({"status": "success", "images": generated_images})
+        return jsonify({"status": "success", "images": generated_images_base64})
 
     except Exception as e:
+        # 捕获所有异常，包括 API 密钥错误等
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
