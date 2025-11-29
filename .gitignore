@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+config.json
+static/generated/
+.env
+venv/
+.vscode/
+.idea/

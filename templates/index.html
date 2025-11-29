@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nano Banana Pro Image Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen font-sans">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-orange-500">
+                <i class="fas fa-image mr-2"></i>Nano Banana Image
+            </h1>
+            <button onclick="openSettings()" class="p-2 rounded-full hover:bg-gray-700 transition">
+                <i class="fas fa-cog text-xl text-gray-300"></i>
+            </button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Left Panel: Controls -->
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-200">生成设置</h2>
+                    
+                    <!-- Prompt Input -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-400 mb-2">提示词 (Prompt)</label>
+                        <textarea id="prompt" rows="4" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none resize-none" placeholder="描述你想生成的图片..."></textarea>
+                    </div>
+
+                    <!-- Image Upload (Optional) -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-400 mb-2">参考图片 (可选)</label>
+                        <div class="relative border-2 border-dashed border-gray-600 rounded-lg p-4 text-center hover:border-yellow-500 transition cursor-pointer" onclick="document.getElementById('fileInput').click()">
+                            <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="handleImageUpload(this)">
+                            <div id="uploadPlaceholder">
+                                <i class="fas fa-cloud-upload-alt text-2xl text-gray-500 mb-2"></i>
+                                <p class="text-xs text-gray-500">点击上传图片</p>
+                            </div>
+                            <img id="previewImage" class="hidden max-h-32 mx-auto rounded" />
+                            <button id="clearImageBtn" class="hidden absolute top-1 right-1 text-red-400 hover:text-red-300" onclick="clearImage(event)">
+                                <i class="fas fa-times-circle"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Aspect Ratio Selection -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-400 mb-2">图片比例 (Aspect Ratio)</label>
+                        <select id="aspectRatio" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-2 text-white focus:border-yellow-500 outline-none">
+                            <option value="">默认 (1:1)</option>
+                            <option value="1:1">1:1 (Square)</option>
+                            <option value="4:3">4:3 (Landscape)</option>
+                            <option value="3:4">3:4 (Portrait)</option>
+                            <option value="16:9">16:9 (Widescreen)</option>
+                            <option value="9:16">9:16 (Mobile)</option>
+                        </select>
+                    </div>
+
+                    <!-- Model Selection (Quick View) -->
+                    <div class="mb-6">
+                         <label class="block text-sm font-medium text-gray-400 mb-2">当前模型</label>
+                         <div class="text-sm text-yellow-400 font-mono" id="currentModelDisplay">Loading...</div>
+                    </div>
+
+                    <!-- Generate Button -->
+                    <button onclick="generateImage()" id="generateBtn" class="w-full bg-gradient-to-r from-yellow-500 to-orange-600 text-white font-bold py-3 px-4 rounded-lg shadow hover:from-yellow-600 hover:to-orange-700 transition transform hover:scale-[1.02] flex justify-center items-center">
+                        <span id="btnText">生成图片</span>
+                        <i id="btnSpinner" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                    </button>
+                </div>
+                
+                <!-- Error Box -->
+                <div id="errorBox" class="hidden bg-red-900/50 border border-red-500 text-red-200 p-4 rounded-lg text-sm">
+                    <i class="fas fa-exclamation-circle mr-2"></i>
+                    <span id="errorMessage"></span>
+                </div>
+            </div>
+
+            <!-- Right Panel: Results -->
+            <div class="lg:col-span-2">
+                <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 min-h-[500px] flex flex-col">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-200">生成结果</h2>
+                    
+                    <div id="resultContainer" class="flex-1 flex items-center justify-center bg-gray-900 rounded-lg border border-gray-700 relative overflow-hidden">
+                        <p class="text-gray-500" id="emptyState">暂无生成的图片</p>
+                        <img id="resultImage" class="hidden max-w-full max-h-[600px] object-contain rounded shadow-2xl" />
+                    </div>
+                    
+                    <div id="imageActions" class="mt-4 flex justify-end space-x-3 hidden">
+                        <a id="downloadLink" href="#" download="generated.png" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded transition">
+                            <i class="fas fa-download mr-2"></i>下载
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="bg-gray-800 w-full max-w-md rounded-xl shadow-2xl border border-gray-700 p-6 transform transition-all">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-white">设置</h3>
+                <button onclick="closeSettings()" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">Base URL</label>
+                    <input type="text" id="configBaseUrl" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-yellow-500 outline-none" placeholder="https://generativelanguage.googleapis.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">API Key</label>
+                    <input type="password" id="configApiKey" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-yellow-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">模型名称</label>
+                    <select id="configModel" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-yellow-500 outline-none">
+                        <option value="gemini-2.5-flash-image">gemini-2.5-flash-image</option>
+                        <option value="gemini-3-pro-image-preview">gemini-3-pro-image-preview</option>
+                         <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp (Text Only)</option>
+                    </select>
+                     <input type="text" id="configModelCustom" class="mt-2 w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-yellow-500 outline-none hidden" placeholder="Custom Model Name">
+                     <div class="flex items-center mt-1">
+                         <input type="checkbox" id="useCustomModel" onchange="toggleCustomModel()" class="mr-2">
+                         <label for="useCustomModel" class="text-xs text-gray-400">使用自定义模型名称</label>
+                     </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end space-x-3">
+                <button onclick="closeSettings()" class="px-4 py-2 text-gray-400 hover:text-white transition">取消</button>
+                <button onclick="saveSettings()" class="px-6 py-2 bg-yellow-600 hover:bg-yellow-500 text-white rounded font-medium transition">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentImageBase64 = null;
+
+        // Load config on startup
+        window.onload = async () => {
+            try {
+                const res = await axios.get('/api/config');
+                const config = res.data;
+                document.getElementById('configBaseUrl').value = config.base_url;
+                document.getElementById('configApiKey').value = config.api_key;
+                
+                const modelSelect = document.getElementById('configModel');
+                const customInput = document.getElementById('configModelCustom');
+                const customCheck = document.getElementById('useCustomModel');
+                
+                let found = false;
+                for(let i=0; i<modelSelect.options.length; i++) {
+                    if(modelSelect.options[i].value === config.model_name) {
+                        modelSelect.value = config.model_name;
+                        found = true;
+                        break;
+                    }
+                }
+                
+                if(!found && config.model_name) {
+                    customCheck.checked = true;
+                    toggleCustomModel();
+                    customInput.value = config.model_name;
+                } else {
+                    document.getElementById('currentModelDisplay').textContent = config.model_name || 'Not Set';
+                }
+                
+                if (!found && !config.model_name) {
+                     modelSelect.value = "gemini-2.5-flash-image"; // Default
+                }
+                
+                updateCurrentModelDisplay();
+
+            } catch (err) {
+                console.error("Failed to load config", err);
+            }
+        };
+
+        function toggleCustomModel() {
+            const isCustom = document.getElementById('useCustomModel').checked;
+            const select = document.getElementById('configModel');
+            const input = document.getElementById('configModelCustom');
+            
+            if (isCustom) {
+                select.classList.add('hidden');
+                input.classList.remove('hidden');
+            } else {
+                select.classList.remove('hidden');
+                input.classList.add('hidden');
+            }
+        }
+
+        function updateCurrentModelDisplay() {
+             const isCustom = document.getElementById('useCustomModel').checked;
+             let val = isCustom ? document.getElementById('configModelCustom').value : document.getElementById('configModel').value;
+             document.getElementById('currentModelDisplay').textContent = val;
+        }
+
+        function openSettings() {
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        async function saveSettings() {
+            const isCustom = document.getElementById('useCustomModel').checked;
+            const modelName = isCustom ? document.getElementById('configModelCustom').value : document.getElementById('configModel').value;
+            
+            const config = {
+                base_url: document.getElementById('configBaseUrl').value,
+                api_key: document.getElementById('configApiKey').value,
+                model_name: modelName
+            };
+
+            try {
+                await axios.post('/api/config', config);
+                updateCurrentModelDisplay();
+                closeSettings();
+                alert('设置已保存');
+            } catch (err) {
+                alert('保存失败: ' + err.message);
+            }
+        }
+
+        function handleImageUpload(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('previewImage').src = e.target.result;
+                    document.getElementById('previewImage').classList.remove('hidden');
+                    document.getElementById('uploadPlaceholder').classList.add('hidden');
+                    document.getElementById('clearImageBtn').classList.remove('hidden');
+                    currentImageBase64 = e.target.result;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function clearImage(e) {
+            e.stopPropagation();
+            document.getElementById('fileInput').value = '';
+            document.getElementById('previewImage').src = '';
+            document.getElementById('previewImage').classList.add('hidden');
+            document.getElementById('uploadPlaceholder').classList.remove('hidden');
+            document.getElementById('clearImageBtn').classList.add('hidden');
+            currentImageBase64 = null;
+        }
+
+        async function generateImage() {
+            const prompt = document.getElementById('prompt').value;
+            if (!prompt) {
+                showError("请输入提示词");
+                return;
+            }
+
+            const btn = document.getElementById('generateBtn');
+            const btnText = document.getElementById('btnText');
+            const btnSpinner = document.getElementById('btnSpinner');
+            const errorBox = document.getElementById('errorBox');
+            
+            // Reset state
+            errorBox.classList.add('hidden');
+            btn.disabled = true;
+            btn.classList.add('opacity-75', 'cursor-not-allowed');
+            btnText.textContent = "生成中...";
+            btnSpinner.classList.remove('hidden');
+            
+            try {
+                const payload = {
+                    prompt: prompt,
+                    image: currentImageBase64,
+                    aspect_ratio: document.getElementById('aspectRatio').value
+                };
+
+                const res = await axios.post('/api/generate', payload);
+                
+                if (res.data.status === 'success' && res.data.images.length > 0) {
+                    const imageUrl = res.data.images[0];
+                    const imgEl = document.getElementById('resultImage');
+                    imgEl.src = imageUrl;
+                    imgEl.classList.remove('hidden');
+                    document.getElementById('emptyState').classList.add('hidden');
+                    
+                    const downloadLink = document.getElementById('downloadLink');
+                    downloadLink.href = imageUrl;
+                    document.getElementById('imageActions').classList.remove('hidden');
+                } else {
+                    throw new Error("未收到图片数据");
+                }
+
+            } catch (err) {
+                console.error(err);
+                const msg = err.response && err.response.data && err.response.data.error ? err.response.data.error : err.message;
+                showError(msg);
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+                btnText.textContent = "生成图片";
+                btnSpinner.classList.add('hidden');
+            }
+        }
+
+        function showError(msg) {
+            const errorBox = document.getElementById('errorBox');
+            const errorMsg = document.getElementById('errorMessage');
+            errorMsg.textContent = msg;
+            errorBox.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
